@@ -39,7 +39,7 @@ El modelo (`drought_onset_model.h`) es un **Random Forest de 40 árboles, profun
 
 ### [`sistema_alerta_sequia_mallacayan.ipynb`](ml_random_forest/sistema_alerta_sequia_mallacayan.ipynb) — notebook ejecutable
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/GITHUB_USER/GITHUB_REPO/blob/main/ml_random_forest/sistema_alerta_sequia_mallacayan.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DanteRojasP/Sequias-IoT/blob/main/ml_random_forest/sistema_alerta_sequia_mallacayan.ipynb)
 
 Corre en Google Colab y hace dos cosas **reales**, sin simular nada:
 
