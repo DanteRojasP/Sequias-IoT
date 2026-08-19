@@ -1,8 +1,50 @@
 # Sistema de alerta temprana de sequía — Mallacayán (Aija, Áncash, Perú)
 
+[![CI](https://github.com/DanteRojasP/Sequias-IoT/actions/workflows/ci.yml/badge.svg)](https://github.com/DanteRojasP/Sequias-IoT/actions/workflows/ci.yml)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DanteRojasP/Sequias-IoT/blob/main/ml_random_forest/sistema_alerta_sequia_mallacayan.ipynb)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+![Datos reales](https://img.shields.io/badge/datos-Google%20Earth%20Engine%20real-2e7d32)
+
 Sistema de dos nodos para alerta temprana de sequía en una comunidad altoandina sin conectividad estable: un nodo en Lima (con internet) que adquiere y procesa datos satelitales/climáticos, y un nodo de campo en Mallacayán (ESP32-S3) que fusiona esos datos con un sensor in situ y decide localmente el nivel de alerta con un clasificador Random Forest embebido — sin depender de datos móviles ni Wi-Fi.
 
 Este repositorio cubre las **dos partes con código real y ejecutable** del proyecto: la adquisición satelital en la nube y el modelo de Machine Learning. El firmware completo del nodo (ESP-IDF/C++) es un componente aparte, no incluido aquí.
+
+## Arquitectura
+
+```mermaid
+flowchart TB
+    subgraph CLOUD["☁️ Capa 1 · Nube — lima_cloud/ (este repo)"]
+        SAT["Sentinel-2 · MODIS\nCHIRPS · ERA5-Land\n(Google Earth Engine)"] --> ACQ["Adquisición\n16 variables / cuadrante"]
+        ACQ --> SIGN["Firma CRC-32"]
+        SIGN --> HTTP["Servidor HTTP"]
+    end
+    subgraph LINK["📡 Capa 2 · Enlace celular"]
+        HTTP -->|"cada 5 días"| GSM["SIM800L / LILYGO SIM7200"]
+    end
+    subgraph NODE["🌡️ Capa 3 · Nodo ESP32-S3 — ml_random_forest/ (este repo)"]
+        GSM -->|"SMS 2G"| VEC["Vector x[20]"]
+        SENS["Sensor local\n(validación)"] -.-> VEC
+        VEC --> RF["Random Forest\n40 árboles"]
+        RF --> ALERT["Nivel de alerta\nVERDE · AMARILLO · ROJO"]
+    end
+    ALERT -->|"si ROJO"| SMS["Difusión SMS a\nla población"]
+
+    style CLOUD fill:#dce6f1,stroke:#1f4e79
+    style LINK fill:#f6e9d8,stroke:#1f4e79
+    style NODE fill:#eaf1f8,stroke:#1f4e79
+    style SMS fill:#fbeaea,stroke:#c0392b
+```
+
+## Cómo empezar en 3 pasos
+
+```mermaid
+flowchart LR
+    A["1. Clonar / abrir\nen Colab"] --> B["2. Correr lima_cloud\no el notebook"] --> C["3. Ver el nivel de\nalerta calculado"]
+```
+
+1. **Explorar el modelo sin instalar nada** → click en el badge *Open in Colab* de arriba, `Entorno de ejecución → Ejecutar todas`.
+2. **Correr la adquisición completa en tu máquina** → `cd lima_cloud && pip install -r requirements.txt && python -m lima_cloud.main`.
+3. **Ver los tests pasar** → pestaña [Actions](https://github.com/DanteRojasP/Sequias-IoT/actions) de este repo (se corren solos en cada push).
 
 ```
 ├── lima_cloud/          adquisición real de datos satelitales/climáticos (Google Earth Engine)
@@ -31,6 +73,8 @@ cp .env.example .env   # completar con tu proyecto/clave de GEE
 python -m lima_cloud.main
 ```
 
+<img src="docs/fig_pipeline.png" alt="Pipeline de adquisición" width="320">
+
 `lima_cloud/compare_local_vs_satellite.py` es el script de validación real usado en el paper: compara 13 días de lectura local del sensor de campo contra ERA5-Land en el mismo punto (sesgo medido: +3.24 °C, sistemático, consistente con la resolución de ~9 km del reanálisis en terreno andino).
 
 ## 2. `ml_random_forest/` — el clasificador embebido
@@ -47,6 +91,17 @@ Corre en Google Colab y hace dos cosas **reales**, sin simular nada:
 2. **Inferencia real del Random Forest embebido**: `votesForOnset()` es un port **literal** (si/entonces por si/entonces) de `drought_onset_model.h` — no un modelo reentrenado ni una aproximación.
 
 Como Colab no puede leer el sensor físico BME280 instalado en el nodo, esa lectura se ingresa **manualmente** (última medición real disponible) y se usa solo como validación de plausibilidad frente al dato satelital — igual que hace el firmware real (`sensor_validator.cpp`), nunca como feature cruda del modelo.
+
+**Flujo del notebook**, celda por celda:
+
+```mermaid
+flowchart TD
+    A["Autenticar con\ntu cuenta de Google"] --> B["Adquisición real\nen Google Earth Engine"]
+    B --> C["Ingresar manualmente\nla lectura del sensor"]
+    C --> D["Armar vector x[20]\n(orden exacto del firmware)"]
+    D --> E["votesForOnset(x)\nport literal del .h compilado"]
+    E --> F["Nivel de alerta\nVERDE · AMARILLO · ROJO"]
+```
 
 ### Verificación del port (`feature_vector.cpp`, `drought_onset_model.h`, `feature_importance.py`)
 
