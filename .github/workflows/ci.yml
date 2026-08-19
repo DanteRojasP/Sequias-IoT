@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-lima-cloud:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lima_cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run offline test suite (no GEE credentials needed)
+        run: pytest tests/ -v
+
+  validate-notebook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install nbformat
+      - name: Check notebook is valid JSON/nbformat
+        run: python -c "import nbformat; nbformat.read('ml_random_forest/sistema_alerta_sequia_mallacayan.ipynb', as_version=4)"
